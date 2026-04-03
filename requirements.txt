@@ -4,6 +4,7 @@ aiohttp==3.12.12
 pillow==11.2.1
 tqdm==4.67.1
 python-dotenv==0.21.0
+numpy<2.0
 
 # Optional: uncomment below for ML model training/testing
 --extra-index-url https://download.pytorch.org/whl/cpu
