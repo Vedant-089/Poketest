@@ -18,7 +18,8 @@ class Database:
     min_size=1,
     max_size=5,
     max_inactive_connection_lifetime=30.0,
-    command_timeout=10.0
+    command_timeout=10.0,
+    statement_cache_size=0
 )
 
     async def close(self):
