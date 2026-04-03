@@ -7,6 +7,8 @@ from PIL import Image
 import aiohttp
 import io
 import json
+import urllib.request
+import os
 
 from database import db
 from functions import get_users_hunting, get_users_collecting
@@ -16,6 +18,14 @@ MODEL_PATH = "pokemon_model.pt"
 MODEL_NAME = "convnext_tiny.fb_in22k"
 IMG_SIZE = 224
 CONF_THRESHOLD = 0.30  # 30%
+
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from HuggingFace...")
+    urllib.request.urlretrieve(
+        "https://huggingface.co/veduxd/pokemon_model/resolve/main/pokemon_model.pt",
+        MODEL_PATH
+    )
+    print("Model downloaded.")
 
 
 def preprocess_image(img: Image.Image):
