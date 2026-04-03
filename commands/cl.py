@@ -31,9 +31,12 @@ class CollectionCommands(commands.Cog):
         updated_str = ",".join(sorted(updated))
 
         await db.execute(
-            "UPDATE shusers SET collection = $1 WHERE userid = $2",
-            updated_str, user_id
-        )
+    """
+    INSERT INTO shusers (userid, collection) VALUES ($1, $2)
+    ON CONFLICT (userid) DO UPDATE SET collection = $2
+    """,
+    user_id, updated_str
+)
 
         response = f"✅ Added: {', '.join(valid_names)}"
         if invalid:
