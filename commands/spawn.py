@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
-import torch
-import timm
-from torchvision import transforms
+import onnxruntime as ort
+import numpy as np
 from PIL import Image
 import aiohttp
 import io
@@ -16,40 +15,37 @@ from database import db
 from functions import get_users_hunting, get_users_collecting
 
 POKETWO_BOT_ID = 716390085896962058
-MODEL_PATH = "pokemon_model.pt"
-MODEL_NAME = "convnext_tiny.fb_in22k"
+MODEL_PATH = "pokemon_model.onnx"
+MODEL_DATA_PATH = "pokemon_model.onnx.data"
 IMG_SIZE = 224
 CONF_THRESHOLD = 0.30  # 30%
 
-if os.path.exists(MODEL_PATH):
-    print(f"Model file size: {os.path.getsize(MODEL_PATH)} bytes")
-    if os.path.getsize(MODEL_PATH) < 1_000_000:
-        print("Pointer file detected, re-downloading...")
-        os.remove(MODEL_PATH)
-
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model from HuggingFace...")
-    urllib.request.urlretrieve(
-        "https://huggingface.co/veduxd/pokemon_model/resolve/main/pokemon_model.pt",
-        MODEL_PATH
-    )
-    print("Model downloaded.")
+for filename, url in [
+    (MODEL_PATH, "https://huggingface.co/veduxd/pokemon_model/resolve/main/pokemon_model.onnx"),
+    (MODEL_DATA_PATH, "https://huggingface.co/veduxd/pokemon_model/resolve/main/pokemon_model.onnx.data"),
+]:
+    if os.path.exists(filename) and os.path.getsize(filename) < 1_000_000:
+        os.remove(filename)
+    if not os.path.exists(filename):
+        print(f"Downloading {filename}...")
+        urllib.request.urlretrieve(url, filename)
+        print(f"{filename} downloaded.")
 
 
 def preprocess_image(img: Image.Image):
-    transform = transforms.Compose(
-        [
-            transforms.Resize((IMG_SIZE, IMG_SIZE)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5] * 3, [0.5] * 3),
-        ]
-    )
-    return transform(img).unsqueeze(0)
+    img = img.resize((IMG_SIZE, IMG_SIZE))
+    arr = np.array(img).astype(np.float32) / 255.0
+    arr = (arr - 0.5) / 0.5
+    arr = arr.transpose(2, 0, 1)  # HWC -> CHW
+    return arr[np.newaxis, :]  # add batch dim
 
 
-def run_inference(model, tensor):
-    with torch.no_grad():
-        return torch.softmax(model(tensor), dim=1)[0]
+def run_inference(session, tensor_np):
+    outputs = session.run(None, {"input": tensor_np})
+    logits = outputs[0][0]
+    exp = np.exp(logits - np.max(logits))
+    probs = exp / exp.sum()
+    return probs
 
 
 class SpawnPredictor(commands.Cog):
@@ -73,22 +69,18 @@ class SpawnPredictor(commands.Cog):
         with open("region.json", "r", encoding="utf-8") as f:
             self.region_data = json.load(f)
 
-        # Load PyTorch model
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = timm.create_model(
-            MODEL_NAME, pretrained=False, num_classes=len(self.idx_to_name)
-        )
-        self.model.load_state_dict(torch.load(MODEL_PATH, map_location=self.device))
-        self.model.eval().to(self.device)
+        # Load ONNX model
+        self.ort_session = ort.InferenceSession(MODEL_PATH)
+        print("ONNX model loaded.")
 
-        self.session = aiohttp.ClientSession()
+        self.http_session = aiohttp.ClientSession()
 
     async def ensure_db_connected(self):
         if not db.pool:
             await db.connect()
 
     async def cog_unload(self):
-        await self.session.close()
+        await self.http_session.close()
 
     def get_pokemon_types(self, name: str):
         types = []
@@ -115,22 +107,22 @@ class SpawnPredictor(commands.Cog):
 
         try:
             # 1. Download image
-            async with self.session.get(message.embeds[0].image.url) as resp:
+            async with self.http_session.get(message.embeds[0].image.url) as resp:
                 if resp.status != 200:
                     return
                 img_bytes = await resp.read()
 
             img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-            tensor = preprocess_image(img).to(self.device)
+            tensor_np = preprocess_image(img)
 
-            # 2. Run PyTorch inference in executor to avoid blocking event loop
+            # 2. Run ONNX inference in executor to avoid blocking event loop
             loop = asyncio.get_event_loop()
             probs = await loop.run_in_executor(
                 None,
-                functools.partial(run_inference, self.model, tensor)
+                functools.partial(run_inference, self.ort_session, tensor_np)
             )
 
-            top_idx = int(torch.argmax(probs))
+            top_idx = int(np.argmax(probs))
             confidence = float(probs[top_idx])
             name = self.idx_to_name[top_idx]
 

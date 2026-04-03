@@ -7,7 +7,4 @@ python-dotenv==0.21.0
 numpy<2.0
 
 # Optional: uncomment below for ML model training/testing
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.2+cpu
-torchvision==0.17.2+cpu
-timm
+onnxruntime
