@@ -10,7 +10,7 @@ class ChannelManager(commands.Cog):
     async def create_incense_channels(self, ctx):
         """Creates a category 'incense' and 100 text channels inside it."""
         guild = ctx.guild
-        category_name = "incense"
+        category_name = "incense-1"
 
         # Check if category already exists
         category = discord.utils.get(guild.categories, name=category_name)
@@ -21,7 +21,7 @@ class ChannelManager(commands.Cog):
             await ctx.send(f"⚠️ Category **{category_name}** already exists — using it.")
 
         created = 0
-        for i in range(1, 100):
+        for i in range(51, 100):
             channel_name = f"incense-{i}"
             existing = discord.utils.get(guild.channels, name=channel_name)
             if existing:
