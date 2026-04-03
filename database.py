@@ -1,5 +1,9 @@
 import asyncpg
 import asyncio
+import os 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Database:
     def __init__(self, dsn):
@@ -41,7 +45,7 @@ class Database:
 
 
 # Create a single global database instance
-db = Database("postgresql://postgres:pokedia_2389@db.urgwtnlyeezkbgbjlqjb.supabase.co:5432/postgres")
+db = Database(os.getenv("DATABASE_URL"))
 
 # Function to initialize the database at bot startup
 async def setup_database():
