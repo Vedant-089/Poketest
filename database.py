@@ -41,7 +41,7 @@ class Database:
 
 
 # Create a single global database instance
-db = Database("postgresql://postgres:pokedia2389@localhost/pokedia")
+db = Database("postgresql://postgres:pokedia_2389@db.urgwtnlyeezkbgbjlqjb.supabase.co:5432/postgres")
 
 # Function to initialize the database at bot startup
 async def setup_database():
