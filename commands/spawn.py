@@ -69,6 +69,10 @@ class SpawnPredictor(commands.Cog):
         with open("region.json", "r", encoding="utf-8") as f:
             self.region_data = json.load(f)
 
+        # Load rare.json
+        with open("rare.json", "r", encoding="utf-8") as f:
+            self.rare_data = json.load(f)
+
         # Load ONNX model
         self.ort_session = ort.InferenceSession(MODEL_PATH)
         print("ONNX model loaded.")
@@ -96,6 +100,13 @@ class SpawnPredictor(commands.Cog):
             if name.lower() in [n.lower() for n in names]:
                 regions.append(r)
         return regions
+
+    def get_rare_flags(self, name: str):
+        rares = []
+        for group, names in self.rare_data.items():
+            if name.lower() in [n.lower() for n in names]:
+                rares.append(group)
+        return rares
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -136,6 +147,7 @@ class SpawnPredictor(commands.Cog):
 
             types = self.get_pokemon_types(name)
             regions = self.get_pokemon_regions(name)
+            rares = self.get_rare_flags(name)
 
             # Role/find mentions
             type_role_mentions = []
@@ -149,6 +161,12 @@ class SpawnPredictor(commands.Cog):
                 role = discord.utils.get(message.guild.roles, name=r.lower())
                 if role:
                     region_role_mentions.append(role.mention)
+
+            rare_role_mentions = []
+            if rares:
+                role = discord.utils.get(message.guild.roles, name="Rares")
+                if role:
+                    rare_role_mentions.append(role.mention)
 
             reply_lines = [
                 f"{name}: {confidence:.3%}",
@@ -164,6 +182,11 @@ class SpawnPredictor(commands.Cog):
                 reply_lines.append("Region Pings: " + ", ".join(region_role_mentions))
             if regions:
                 reply_lines.append("Regions: " + ", ".join(regions))
+
+            if rare_role_mentions:
+                reply_lines.append("Rare Pings: " + ", ".join(rare_role_mentions))
+            if rares:
+                reply_lines.append("Rares: " + ", ".join(rares))
 
             if hunters:
                 reply_lines.append("Hunt Pings: " + ", ".join(f"<@{uid}>" for uid in hunters))
