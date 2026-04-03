@@ -14,13 +14,12 @@ class Database:
         """Establish a connection pool with PostgreSQL."""
         if not self.pool:
             self.pool = await asyncpg.create_pool(
-                self.dsn,
-                min_size=1,
-                max_size=5,
-                max_inactive_connection_lifetime=30.0,
-                max_lifetime=300.0,
-                command_timeout=10.0
-            )
+    self.dsn,
+    min_size=1,
+    max_size=5,
+    max_inactive_connection_lifetime=30.0,
+    command_timeout=10.0
+)
 
     async def close(self):
         """Close the database connection pool."""
