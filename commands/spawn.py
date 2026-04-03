@@ -10,6 +10,7 @@ import urllib.request
 import os
 import asyncio
 import functools
+import re
 
 from database import db
 from functions import get_users_hunting, get_users_collecting
@@ -73,6 +74,28 @@ class SpawnPredictor(commands.Cog):
         with open("rare.json", "r", encoding="utf-8") as f:
             self.rare_data = json.load(f)
 
+        # Load regional.json
+        with open("regional.json", "r", encoding="utf-8") as f:
+            self.regional_data = json.load(f)
+
+        # Load eeveelutions_paradox.json
+        with open("eeveelutions_paradox.json", "r", encoding="utf-8") as f:
+            self.eeveelutions_paradox_data = json.load(f)
+
+        # Precompute normalized name lookups for robust matching.
+        self.rare_lookup = {
+            group: {self.normalize_name(n) for n in names}
+            for group, names in self.rare_data.items()
+        }
+        self.regional_lookup = {
+            group: {self.normalize_name(n) for n in names}
+            for group, names in self.regional_data.items()
+        }
+        self.eeveelutions_paradox_lookup = {
+            group: {self.normalize_name(n) for n in names}
+            for group, names in self.eeveelutions_paradox_data.items()
+        }
+
         # Load ONNX model
         self.ort_session = ort.InferenceSession(MODEL_PATH)
         print("ONNX model loaded.")
@@ -101,12 +124,32 @@ class SpawnPredictor(commands.Cog):
                 regions.append(r)
         return regions
 
+    def normalize_name(self, name: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", name.lower())
+
     def get_rare_flags(self, name: str):
+        norm_name = self.normalize_name(name)
         rares = []
-        for group, names in self.rare_data.items():
-            if name.lower() in [n.lower() for n in names]:
+        for group, names in self.rare_lookup.items():
+            if norm_name in names:
                 rares.append(group)
         return rares
+
+    def get_regional_flags(self, name: str):
+        norm_name = self.normalize_name(name)
+        regionals = []
+        for group, names in self.regional_lookup.items():
+            if norm_name in names:
+                regionals.append(group)
+        return regionals
+
+    def get_eeveelutions_paradox_flags(self, name: str):
+        norm_name = self.normalize_name(name)
+        ep = []
+        for group, names in self.eeveelutions_paradox_lookup.items():
+            if norm_name in names:
+                ep.append(group)
+        return ep
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -148,6 +191,8 @@ class SpawnPredictor(commands.Cog):
             types = self.get_pokemon_types(name)
             regions = self.get_pokemon_regions(name)
             rares = self.get_rare_flags(name)
+            regionals = self.get_regional_flags(name)
+            eeveelutions_paradox = self.get_eeveelutions_paradox_flags(name)
 
             # Role/find mentions
             type_role_mentions = []
@@ -168,6 +213,18 @@ class SpawnPredictor(commands.Cog):
                 if role:
                     rare_role_mentions.append(role.mention)
 
+            regional_role_mentions = []
+            if regionals:
+                role = discord.utils.get(message.guild.roles, name="Regionals")
+                if role:
+                    regional_role_mentions.append(role.mention)
+
+            eeveelutions_paradox_role_mentions = []
+            if eeveelutions_paradox:
+                role = discord.utils.get(message.guild.roles, name="Eeveelutions & Paradox")
+                if role:
+                    eeveelutions_paradox_role_mentions.append(role.mention)
+
             reply_lines = [
                 f"{name}: {confidence:.3%}",
                 f"Best Name: **{name}**",
@@ -187,6 +244,22 @@ class SpawnPredictor(commands.Cog):
                 reply_lines.append("Rare Pings: " + ", ".join(rare_role_mentions))
             if rares:
                 reply_lines.append("Rares: " + ", ".join(rares))
+
+            if regional_role_mentions:
+                reply_lines.append("Regional Pings: " + ", ".join(regional_role_mentions))
+            if regionals:
+                reply_lines.append("Regionals: " + ", ".join(regionals))
+
+            if eeveelutions_paradox_role_mentions:
+                reply_lines.append(
+                    "Eeveelutions & Paradox Pings: "
+                    + ", ".join(eeveelutions_paradox_role_mentions)
+                )
+            if eeveelutions_paradox:
+                reply_lines.append(
+                    "Eeveelutions & Paradox: "
+                    + ", ".join(eeveelutions_paradox)
+                )
 
             if hunters:
                 reply_lines.append("Hunt Pings: " + ", ".join(f"<@{uid}>" for uid in hunters))

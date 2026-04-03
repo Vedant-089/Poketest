@@ -16,7 +16,7 @@ class RoleCreator(commands.Cog):
             "rock", "ghost", "dragon", "dark", "steel", "fairy"
         ]
 
-        extra_roles = ["Rares"]
+        extra_roles = ["Rares", "Regionals", "Eeveelutions & Paradox"]
 
         created = []
         skipped = []
