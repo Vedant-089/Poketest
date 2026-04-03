@@ -9,6 +9,8 @@ import io
 import json
 import urllib.request
 import os
+import asyncio
+import functools
 
 from database import db
 from functions import get_users_hunting, get_users_collecting
@@ -21,7 +23,7 @@ CONF_THRESHOLD = 0.30  # 30%
 
 if os.path.exists(MODEL_PATH):
     print(f"Model file size: {os.path.getsize(MODEL_PATH)} bytes")
-    if os.path.getsize(MODEL_PATH) < 1_000_000:  # less than 1MB = pointer file
+    if os.path.getsize(MODEL_PATH) < 1_000_000:
         print("Pointer file detected, re-downloading...")
         os.remove(MODEL_PATH)
 
@@ -43,6 +45,11 @@ def preprocess_image(img: Image.Image):
         ]
     )
     return transform(img).unsqueeze(0)
+
+
+def run_inference(model, tensor):
+    with torch.no_grad():
+        return torch.softmax(model(tensor), dim=1)[0]
 
 
 class SpawnPredictor(commands.Cog):
@@ -116,9 +123,12 @@ class SpawnPredictor(commands.Cog):
             img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
             tensor = preprocess_image(img).to(self.device)
 
-            # 2. Run PyTorch prediction
-            with torch.no_grad():
-                probs = torch.softmax(self.model(tensor), dim=1)[0]
+            # 2. Run PyTorch inference in executor to avoid blocking event loop
+            loop = asyncio.get_event_loop()
+            probs = await loop.run_in_executor(
+                None,
+                functools.partial(run_inference, self.model, tensor)
+            )
 
             top_idx = int(torch.argmax(probs))
             confidence = float(probs[top_idx])
