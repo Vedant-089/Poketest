@@ -73,7 +73,8 @@ class SpawnPredictor(commands.Cog):
         self.ort_session = ort.InferenceSession(MODEL_PATH)
         print("ONNX model loaded.")
 
-        self.http_session = aiohttp.ClientSession()
+        connector = aiohttp.TCPConnector(limit=100, ttl_dns_cache=300, keepalive_timeout=30)
+        self.http_session = aiohttp.ClientSession(connector=connector)
 
     async def ensure_db_connected(self):
         if not db.pool:

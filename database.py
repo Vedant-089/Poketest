@@ -16,8 +16,10 @@ class Database:
             self.pool = await asyncpg.create_pool(
                 self.dsn,
                 min_size=1,
-                max_size=5,  # reduce to control resource usage
-                max_inactive_connection_lifetime=30.0  # closes idle clients faster
+                max_size=5,
+                max_inactive_connection_lifetime=30.0,
+                max_lifetime=300.0,
+                command_timeout=10.0
             )
 
     async def close(self):
@@ -32,16 +34,15 @@ class Database:
 
     async def fetch(self, query, *args):
         async with self.pool.acquire() as conn:
-            return await conn.fetch(query, *args)  # Fetch multiple rows
+            return await conn.fetch(query, *args)
 
     async def fetchrow(self, query, *args):
         async with self.pool.acquire() as conn:
-            return await conn.fetchrow(query, *args)  # Fetch a single row
+            return await conn.fetchrow(query, *args)
 
     async def fetchval(self, query, *args):
         async with self.pool.acquire() as conn:
-            return await conn.fetchval(query, *args)  # Fetch a single value
-
+            return await conn.fetchval(query, *args)
 
 
 # Create a single global database instance
