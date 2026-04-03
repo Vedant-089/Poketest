@@ -1,0 +1,2 @@
+[phases.setup]
+cmds = ["apt-get install -y git-lfs", "git lfs pull"]
