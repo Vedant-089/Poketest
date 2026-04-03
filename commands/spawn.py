@@ -19,6 +19,12 @@ MODEL_NAME = "convnext_tiny.fb_in22k"
 IMG_SIZE = 224
 CONF_THRESHOLD = 0.30  # 30%
 
+if os.path.exists(MODEL_PATH):
+    print(f"Model file size: {os.path.getsize(MODEL_PATH)} bytes")
+    if os.path.getsize(MODEL_PATH) < 1_000_000:  # less than 1MB = pointer file
+        print("Pointer file detected, re-downloading...")
+        os.remove(MODEL_PATH)
+
 if not os.path.exists(MODEL_PATH):
     print("Downloading model from HuggingFace...")
     urllib.request.urlretrieve(
