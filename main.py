@@ -12,7 +12,7 @@ intents.message_content = True
 intents.members = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("p!"), intents=intents, help_command=None)
+bot = commands.Bot(command_prefix=commands.when_mentioned_or("p!", "P!"), intents=intents, help_command=None)
 
 bot.db = Database(dsn=os.getenv("DATABASE_URL"))
 

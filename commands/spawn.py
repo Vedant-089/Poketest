@@ -82,6 +82,10 @@ class SpawnPredictor(commands.Cog):
         with open("eeveelutions_paradox.json", "r", encoding="utf-8") as f:
             self.eeveelutions_paradox_data = json.load(f)
 
+        # Load gigantamax.json
+        with open("gigantamax.json", "r", encoding="utf-8") as f:
+            self.gigantamax_data = json.load(f)
+
         # Precompute normalized name lookups for robust matching.
         self.rare_lookup = {
             group: {self.normalize_name(n) for n in names}
@@ -94,6 +98,10 @@ class SpawnPredictor(commands.Cog):
         self.eeveelutions_paradox_lookup = {
             group: {self.normalize_name(n) for n in names}
             for group, names in self.eeveelutions_paradox_data.items()
+        }
+        self.gigantamax_lookup = {
+            group: {self.normalize_name(n) for n in names}
+            for group, names in self.gigantamax_data.items()
         }
 
         # Load ONNX model
@@ -151,6 +159,14 @@ class SpawnPredictor(commands.Cog):
                 ep.append(group)
         return ep
 
+    def get_gigantamax_flags(self, name: str):
+        norm_name = self.normalize_name(name)
+        gmax = []
+        for group, names in self.gigantamax_lookup.items():
+            if norm_name in names:
+                gmax.append(group)
+        return gmax
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if (
@@ -193,6 +209,7 @@ class SpawnPredictor(commands.Cog):
             rares = self.get_rare_flags(name)
             regionals = self.get_regional_flags(name)
             eeveelutions_paradox = self.get_eeveelutions_paradox_flags(name)
+            gigantamax = self.get_gigantamax_flags(name)
 
             # Role/find mentions
             type_role_mentions = []
@@ -224,6 +241,12 @@ class SpawnPredictor(commands.Cog):
                 role = discord.utils.get(message.guild.roles, name="Eeveelutions & Paradox")
                 if role:
                     eeveelutions_paradox_role_mentions.append(role.mention)
+
+            gigantamax_role_mentions = []
+            if gigantamax:
+                role = discord.utils.get(message.guild.roles, name="Gigantamax")
+                if role:
+                    gigantamax_role_mentions.append(role.mention)
 
             reply_lines = [
                 f"{name}: {confidence:.3%}",
@@ -260,6 +283,11 @@ class SpawnPredictor(commands.Cog):
                     "Eeveelutions & Paradox: "
                     + ", ".join(eeveelutions_paradox)
                 )
+
+            if gigantamax_role_mentions:
+                reply_lines.append("Gigantamax Pings: " + ", ".join(gigantamax_role_mentions))
+            if gigantamax:
+                reply_lines.append("Gigantamax: " + ", ".join(gigantamax))
 
             if hunters:
                 reply_lines.append("Hunt Pings: " + ", ".join(f"<@{uid}>" for uid in hunters))
