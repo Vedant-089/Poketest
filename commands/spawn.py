@@ -11,6 +11,7 @@ import os
 import asyncio
 import functools
 import re
+from pathlib import Path
 
 from database import db
 from functions import get_users_hunting, get_users_collecting
@@ -20,6 +21,7 @@ MODEL_PATH = "pokemon_model.onnx"
 MODEL_DATA_PATH = "pokemon_model.onnx.data"
 IMG_SIZE = 224
 CONF_THRESHOLD = 0.30  # 30%
+RECOG_PATH = Path("recog.json")
 
 for filename, url in [
     (MODEL_PATH, "https://huggingface.co/veduxd/pokemon_model/resolve/main/pokemon_model.onnx"),
@@ -167,6 +169,20 @@ class SpawnPredictor(commands.Cog):
                 gmax.append(group)
         return gmax
 
+    def is_recognition_enabled(self) -> bool:
+        try:
+            with RECOG_PATH.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Accept either spelling to be tolerant of existing files.
+            value = data.get("recognition", data.get("recoginition", True))
+            return bool(value)
+        except FileNotFoundError:
+            return True
+        except Exception as e:
+            print(f"⚠️ Failed to read {RECOG_PATH}: {e}")
+            return True
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if (
@@ -174,6 +190,9 @@ class SpawnPredictor(commands.Cog):
             or not message.embeds
             or not (message.embeds[0].image and message.embeds[0].image.url)
         ):
+            return
+
+        if not self.is_recognition_enabled():
             return
 
         try:
