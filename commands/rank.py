@@ -39,10 +39,10 @@ class RankToggle(commands.Cog):
 
         if role in member.roles:
             await member.remove_roles(role, reason="Self-toggle rank role")
-            await ctx.send(f"➖ Removed {role.mention} from {member.mention}")
+            await ctx.send(f"➖ Removed {role.name} from {member.mention}")
         else:
             await member.add_roles(role, reason="Self-toggle rank role")
-            await ctx.send(f"➕ Added {role.mention} to {member.mention}")
+            await ctx.send(f"➕ Added {role.name} to {member.mention}")
 
 
 async def setup(bot: commands.Bot):
